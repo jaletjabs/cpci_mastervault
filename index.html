@@ -2,17 +2,61 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MasterVault Cloud Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f1f5f9; overflow: hidden; }
+        .sub-nav-btn { width: 100%; display: flex; align-items: center; gap: 0.75rem; padding: 0.85rem 1rem; border-radius: 12px; transition: all 0.3s ease; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.05em; border: none; background: transparent; cursor: pointer; }
+        .sub-nav-btn:hover { background: #e2e8f0; color: #0f172a; transform: translateX(5px); }
+        .sub-nav-btn.active { background: #0f172a; color: white; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        #slider-container { width: 700%; height: 100%; display: flex; transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1); }
+        .slide-section { width: 100%; height: 100%; flex-shrink: 0; }
+        @media print { .no-print { display: none !important; } aside { display: none; } main { width: 100%; padding: 0; } }
+    </style>
 </head>
 <body>
-    <div class="bento-container">
-        <div class="box large">Welcome to My Site</div>
-        <div class="box small">Profile</div>
-        <div class="box small">Links</div>
-        <div class="box medium">My Projects</div>
-        <div class="box small">Contact</div>
+
+    <div id="login-page" class="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-[32px] p-10 shadow-2xl text-center">
+            <div class="w-16 h-16 bg-slate-900 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg text-white text-2xl font-black">M</div>
+            <h1 class="text-2xl font-black text-slate-900 uppercase tracking-tight mb-2 italic">MasterVault</h1>
+            <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-8 text-blue-600">Secure Cloud Inventory</p>
+            <form id="loginForm" class="space-y-4 text-left">
+                <input type="email" id="email" placeholder="Operator Email" class="w-full p-4 rounded-xl bg-slate-50 border-2 border-transparent focus:border-blue-500 outline-none transition-all">
+                <input type="password" id="password" placeholder="Access Key" class="w-full p-4 rounded-xl bg-slate-50 border-2 border-transparent focus:border-blue-500 outline-none transition-all">
+                <button type="submit" class="w-full bg-slate-900 hover:bg-blue-600 text-white font-black py-4 rounded-xl uppercase transition-all shadow-lg active:scale-95">Unlock System</button>
+            </form>
+        </div>
     </div>
+
+    <div id="dashboard-page" class="hidden h-screen flex flex-col md:flex-row overflow-hidden">
+        <aside class="w-full md:w-64 bg-white border-r flex flex-col p-6 z-50 no-print shadow-xl">
+            <div class="mb-10 font-black text-xl tracking-tighter uppercase px-2 italic text-slate-900">MV <span class="text-blue-600">Pro</span></div>
+            <nav class="flex-1 space-y-1">
+                <button onclick="nav('Home', 0)" id="nav-Home" class="sub-nav-btn active">Dashboard</button>
+                <button onclick="nav('Register', 1)" id="nav-Register" class="sub-nav-btn">Register Item</button>
+                <button onclick="nav('StockIn', 2)" id="nav-StockIn" class="sub-nav-btn">Stock In</button>
+                <button onclick="nav('Orders', 3)" id="nav-Orders" class="sub-nav-btn">Orders (PO)</button>
+                <button onclick="nav('Shipment', 4)" id="nav-Shipment" class="sub-nav-btn text-orange-600">Dispatch (DR)</button>
+                <button onclick="nav('Pending', 5)" id="nav-Pending" class="sub-nav-btn text-red-600">Pending</button>
+                <button onclick="nav('Summary', 6)" id="nav-Summary" class="sub-nav-btn text-purple-600">📊 Summary</button>
+            </nav>
+            <button onclick="location.reload()" class="mt-4 text-left text-slate-400 font-bold text-[10px] uppercase p-4 hover:text-red-600">Logout</button>
+        </aside>
+
+        <main class="flex-1 relative">
+            <div id="slider-container">
+                <div class="slide-section"></div><div class="slide-section"></div>
+                <div class="slide-section"></div><div class="slide-section ="></div>
+                <div class="slide-section"></div><div class="slide-section"></div>
+                <div class="slide-section"></div>
+            </div>
+            <div id="stocks-content" class="absolute inset-0 p-4 md:p-8 overflow-y-auto"></div>
+        </main>
+    </div>
+
+    <script type="module" src="script.js"></script>
 </body>
 </html>
