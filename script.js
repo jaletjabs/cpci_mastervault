@@ -25,8 +25,6 @@ onAuthStateChanged(auth, (user) => {
     if (!user) {
         document.getElementById('login-page').style.display = 'flex';
         document.getElementById('dashboard-page').classList.add('hidden');
-    } else {
-        console.log("Vault Secure: Session recognized. Standing by for manual unlock.");
     }
 });
 
@@ -34,19 +32,13 @@ document.getElementById('loginForm').onsubmit = async (e) => {
     e.preventDefault();
     const emailVal = document.getElementById('email').value;
     const passVal = document.getElementById('password').value;
-
     try {
-        if (!auth.currentUser) {
-            await signInWithEmailAndPassword(auth, emailVal, passVal);
-        }
-        // If we reach here, user is authenticated. Open the vault.
+        if (!auth.currentUser) await signInWithEmailAndPassword(auth, emailVal, passVal);
         document.getElementById('login-page').style.display = 'none';
         document.getElementById('dashboard-page').classList.replace('hidden', 'flex');
         syncData();
         nav(activeSection, slideIndex);
-    } catch (err) {
-        alert("Access Denied: Please check credentials.");
-    }
+    } catch (err) { alert("Access Denied."); }
 };
 
 function syncData() {
@@ -64,41 +56,59 @@ window.nav = (section, slide) => {
     render();
 };
 
-// --- WAREHOUSE ACTIONS ---
+// --- WAREHOUSE ACTIONS (NaN PROOFED) ---
 window.saveItem = async () => {
-    const code = document.getElementById('cCode').value.toUpperCase();
-    const desc = document.getElementById('cDesc').value;
-    if(code && desc) { await addDoc(collection(db, "items"), { code, desc, qty: 0 }); alert("Item Registered!"); nav('Home', 0); }
+    const code = document.getElementById('cCode').value.toUpperCase().trim();
+    const desc = document.getElementById('cDesc').value.trim();
+    if(code && desc) { 
+        await addDoc(collection(db, "items"), { code, desc, qty: 0 }); 
+        alert("Item Registered!"); nav('Home', 0); 
+    } else { alert("Please fill all fields!"); }
 };
 
 window.addStock = async () => {
-    const id = document.getElementById('sId').value, amt = parseInt(document.getElementById('sQty').value);
+    const id = document.getElementById('sId').value;
+    const rawQty = document.getElementById('sQty').value;
+    const amt = parseInt(rawQty);
+
+    // 🛡️ SHIELD: Prevent NaN Infection
+    if (!rawQty || isNaN(amt) || amt <= 0) return alert("🚫 Enter a valid quantity!");
+
     const ref = doc(db, "items", id);
     const snap = await getDoc(ref);
-    await updateDoc(ref, { qty: snap.data().qty + amt });
-    alert("Warehouse Updated!"); nav('Home', 0);
+    const currentQty = isNaN(snap.data().qty) ? 0 : snap.data().qty; // Auto-fix existing NaN
+
+    await updateDoc(ref, { qty: currentQty + amt });
+    alert("Stock Added!"); nav('Home', 0);
 };
 
-// --- ORDER ACTIONS ---
+// --- ORDER ACTIONS (NaN PROOFED) ---
 window.savePO = async () => {
+    const rawQty = document.getElementById('poQty').value;
+    const qty = parseInt(rawQty);
+    
     const data = {
         woNum: document.getElementById('poWO').value || 'N/A',
         poNum: document.getElementById('poNum').value.trim().toUpperCase(),
         date: document.getElementById('poDate').value,
-        client: document.getElementById('poClient').value,
+        client: document.getElementById('poClient').value.trim(),
         item: document.getElementById('poItem').value,
-        qty: parseInt(document.getElementById('poQty').value),
+        qty: qty,
         status: 'PENDING',
         timestamp: Date.now()
     };
-    if(!data.poNum || isNaN(data.qty)) return alert("Check all fields!");
+
+    if(!data.poNum || !data.date || !data.client || isNaN(qty) || qty <= 0) {
+        return alert("🚫 Check all fields! Quantity must be a valid number.");
+    }
+
     await addDoc(collection(db, "orders"), data);
-    alert("Order Saved!");
+    alert("Order Created!");
 };
 
 window.deleteOrder = async (id) => { if(confirm("Permanently delete?")) await deleteDoc(doc(db, "orders", id)); };
 
-// --- SHIPMENT ACTIONS ---
+// --- SHIPMENT ACTIONS (NaN PROOFED) ---
 window.lookupPOData = async () => {
     const poToFind = document.getElementById('shipPO').value.trim().toUpperCase();
     const itemDropdown = document.getElementById('shipItemSelect');
@@ -119,18 +129,23 @@ window.lookupPOData = async () => {
 };
 
 window.processShipment = async () => {
-    const po = document.getElementById('shipPO').value.trim().toUpperCase(), code = document.getElementById('shipItemSelect').value;
-    const qty = parseInt(document.getElementById('shipQty').value), date = document.getElementById('shipDate').value;
-    const dr = document.getElementById('shipDR').value, client = document.getElementById('shipClient').value;
+    const po = document.getElementById('shipPO').value.trim().toUpperCase();
+    const code = document.getElementById('shipItemSelect').value;
+    const rawQty = document.getElementById('shipQty').value;
+    const qty = parseInt(rawQty);
+    const date = document.getElementById('shipDate').value;
+    const dr = document.getElementById('shipDR').value;
+    const client = document.getElementById('shipClient').value;
 
-    if(!date || !po || !code || isNaN(qty) || qty <= 0) return alert("Verify inputs!");
+    if(!date || !po || !code || isNaN(qty) || qty <= 0) return alert("🚫 Verify shipment quantity!");
+
     const whItem = items.find(i => i.code === code);
     if(!whItem || whItem.qty < qty) return alert("Warehouse Shortage!");
 
     const order = orders.find(o => o.poNum === po && o.item === code);
     if(order) {
         const del = shipments.filter(s => s.po === po && s.itemCode === code).reduce((a, b) => a + b.qty, 0);
-        if(qty > (order.qty - del)) return alert("🚫 Hard Cap: Exceeds PO Balance!");
+        if(qty > (order.qty - del)) return alert("🚫 Exceeds PO Balance!");
     }
 
     await updateDoc(doc(db, "items", whItem.id), { qty: whItem.qty - qty });
@@ -187,7 +202,10 @@ function renderSummaryData() {
 function render() {
     const main = document.getElementById('stocks-content');
     if (activeSection === 'Home') {
-        main.innerHTML = `<h2 class="text-2xl font-black mb-8 uppercase italic">Warehouse Stock</h2><div class="grid grid-cols-1 md:grid-cols-3 gap-6">${items.map(i => `<div class="bg-white p-6 rounded-[24px] shadow-sm border-l-8 ${i.qty > 10 ? 'border-green-500' : 'border-red-500'}"><p class="text-[10px] font-black text-slate-400 uppercase mb-1">${i.code}</p><h4 class="font-bold text-slate-800 mb-4">${i.desc}</h4><div class="text-4xl font-black text-slate-900">${i.qty.toLocaleString()}</div></div>`).join('')}</div>`;
+        main.innerHTML = `<h2 class="text-2xl font-black mb-8 uppercase italic">Warehouse Stock</h2><div class="grid grid-cols-1 md:grid-cols-3 gap-6">${items.map(i => {
+            const displayQty = isNaN(i.qty) ? "Fix in DB" : i.qty.toLocaleString();
+            return `<div class="bg-white p-6 rounded-[24px] shadow-sm border-l-8 ${i.qty > 10 ? 'border-green-500' : 'border-red-500'}"><p class="text-[10px] font-black text-slate-400 uppercase mb-1">${i.code}</p><h4 class="font-bold text-slate-800 mb-4">${i.desc}</h4><div class="text-4xl font-black text-slate-900">${displayQty}</div></div>`
+        }).join('')}</div>`;
     }
     if (activeSection === 'Register') {
         main.innerHTML = `<div class="max-w-md mx-auto bg-white p-10 rounded-[32px] shadow-lg"><h3 class="text-xl font-black uppercase mb-6 text-blue-600 italic text-center">Register New Item</h3><input type="text" id="cCode" placeholder="Item Code" class="w-full p-4 mb-4 border-2 rounded-xl outline-none font-bold focus:border-blue-500"><input type="text" id="cDesc" placeholder="Description" class="w-full p-4 mb-6 border-2 rounded-xl outline-none focus:border-blue-500"><button onclick="saveItem()" class="w-full bg-slate-900 text-white font-black py-4 rounded-xl uppercase">Save Item</button></div>`;
